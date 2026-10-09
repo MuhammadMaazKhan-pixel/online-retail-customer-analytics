@@ -1,3 +1,6 @@
+ALTER TABLE online_retail_cleaned
+RENAME COLUMN "Customer ID" TO Customer_ID;
+
 -- Finding the count of rows.
 SELECT count(*) FROM online_retail_cleaned ; -- 541910
 
@@ -37,10 +40,7 @@ SELECT count(DISTINCT Customer_ID) FROM online_retail_cleaned ;-- 4372
 
 
 -- CLEANING THE DATSET AND CREATING NEW TABLE WITH CLEAT DATABASE
--- FIX: DROP TABLE IF EXISTS added so this script can be rerun from the top.
-DROP TABLE IF EXISTS clean_retail_dataset;
-
--- WHY: the NOT EXISTS check below looks up cancellations once for every sale row.
+-- the NOT EXISTS check below looks up cancellations once for every sale row.
 -- Without an index SQLite scans the whole table each time, which can take very long on 540K rows.
 -- The index lets it jump straight to the rows for that customer and product.
 CREATE INDEX IF NOT EXISTS idx_retail_cancel ON online_retail_cleaned (Customer_ID, StockCode);
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_retail_cancel ON online_retail_cleaned (Customer_
 -- The Quantity > 0 filter removes the cancellation row, but the original sale stayed in the table
 -- and counted as real revenue. That made a ghost product the top seller, inflated January and
 -- December 2011 revenue, and would have made fake "Champions" in the RFM step.
--- FIX: the NOT EXISTS block drops any sale that has a matching later cancellation
+-- the NOT EXISTS block drops any sale that has a matching later cancellation
 -- (same customer, same product, exactly opposite quantity, cancellation on or after the sale date).
 -- Known limitations: partial returns are not netted out, and a repeat purchase of the same
 -- quantity could be matched wrongly. Both effects are small.
@@ -150,7 +150,6 @@ SELECT date(max(InvoiceDate), '+1 day') AS ReferenceDate FROM clean_retail_datas
 
 -- one row per customer with Recency, Frequency and Monetary.
 -- these three numbers say how recently, how often and how much each customer buys.
-DROP TABLE IF EXISTS rfm;
 CREATE TABLE rfm AS
 SELECT Customer_ID, CAST(julianday((SELECT date(max(InvoiceDate), '+1 day') FROM clean_retail_dataset)) - julianday(date(max(InvoiceDate))) AS INTEGER) AS Recency, COUNT(DISTINCT Invoice) AS Frequency, ROUND(SUM(Revenue), 2) AS Monetary
 FROM clean_retail_dataset
@@ -174,7 +173,6 @@ FROM rfm;
 
 -- SEGMENTS
 -- Assign each customer a segment with CASE WHEN.
-DROP TABLE IF EXISTS customer_segments;
 CREATE TABLE customer_segments AS
 SELECT Customer_ID, Recency, Frequency, Monetary, r_score, f_score, m_score,
        CASE
